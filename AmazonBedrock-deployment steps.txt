@@ -1,0 +1,150 @@
+
+
+[root@ip-172-31-46-111 ~]# history
+
+    1  aws
+    2  aws configure
+    3  git clone https://github.com/aws-samples/amazon-bedrock-samples.git
+    4  yum install git -y
+    5  git clone https://github.com/aws-samples/amazon-bedrock-samples.git
+    6  cd /root/amazon-bedrock-samples/agents-and-function-calling/bedrock-agents/use-case-examples/insurance-claim-lifecycle-automation/shell
+    7  ll
+    8  vi create-customer-resources.sh
+    9  chmod +x create-customer-resources.sh
+   10  sh create-customer-resources.sh
+   11  ll
+   12  sh delete-customer-resources.sh
+   13  sh create-customer-resources.sh
+   14  cat create-customer-resources.sh
+   15  cat delete-customer-resources.sh
+   16  sh delete-customer-resources.sh
+   17  sh create-customer-resources.sh
+   18  aws s3 ls
+   19  vi create-customer-resources.sh
+   20  sh create-customer-resources.sh
+   21  cat create-customer-resources.sh
+   22  ll
+   23  vi delete-customer-resources.sh
+   24  chmod +x delete-customer-resources.sh
+   25  vi create-customer-resources.sh
+   26  sh delete-customer-resources.sh
+   27  sh create-customer-resources.sh
+   28  ll
+   29  cat create-customer-resources.sh
+   30  cat delete-customer-resources.sh
+   31  history
+   32  sh delete-customer-resources.sh
+   33  history
+[root@ip-172-31-46-111 ~]#
+
+[root@ip-172-31-46-111 shell]# cat create-customer-resources.sh
+#!/bin/bash
+
+# ---- USER CONFIGURATION ----
+export STACK_NAME="insurance-app-demo"                      # Lowercase only
+export SNS_EMAIL="your-email@example.com"                   # Update to your email
+export EVIDENCE_UPLOAD_URL="https://example.com/upload"     # Update to your actual URL
+export AWS_REGION="us-east-1"                              # Your AWS Region
+
+# ---- SYSTEM VARIABLES ----
+export ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+export ARTIFACT_BUCKET_NAME="${STACK_NAME}-resources-${ACCOUNT_ID}-${AWS_REGION}"
+export DATA_LOADER_KEY="agent/lambda/data-loader/loader_deployment_package.zip"
+export CREATE_CLAIM_KEY="agent/lambda/action-groups/create_claim.zip"
+export GATHER_EVIDENCE_KEY="agent/lambda/action-groups/gather_evidence.zip"
+export SEND_REMINDER_KEY="agent/lambda/action-groups/send_reminder.zip"
+
+# ---- CREATE S3 BUCKET ----
+echo "Creating S3 bucket: ${ARTIFACT_BUCKET_NAME}"
+aws s3 mb s3://${ARTIFACT_BUCKET_NAME} --region ${AWS_REGION} || echo "Bucket may already exist, continuing..."
+
+# ---- UPLOAD FILES TO S3 ----
+echo "Uploading agent files to S3..."
+aws s3 cp ../agent/ s3://${ARTIFACT_BUCKET_NAME}/agent/ \
+    --region ${AWS_REGION} \
+    --recursive \
+    --exclude ".DS_Store" \
+    --exclude "*/.DS_Store"
+
+# ---- CREATE LAMBDA LAYERS ----
+echo "Publishing Bedrock Agents Lambda Layer..."
+export BEDROCK_AGENTS_LAYER_ARN=$(aws lambda publish-layer-version \
+    --layer-name bedrock-agents-and-function-calling \
+    --description "Agents for Bedrock Layer" \
+    --license-info "MIT" \
+    --content S3Bucket=${ARTIFACT_BUCKET_NAME},S3Key=agent/lambda/lambda-layer/bedrock-agents-layer.zip \
+    --compatible-runtimes python3.11 \
+    --region ${AWS_REGION} \
+    --query LayerVersionArn --output text)
+
+echo "Publishing cfnresponse Lambda Layer..."
+export CFNRESPONSE_LAYER_ARN=$(aws lambda publish-layer-version \
+    --layer-name cfnresponse \
+    --description "cfnresponse Layer" \
+    --license-info "MIT" \
+    --content S3Bucket=${ARTIFACT_BUCKET_NAME},S3Key=agent/lambda/lambda-layer/cfnresponse-layer.zip \
+    --compatible-runtimes python3.11 \
+    --region ${AWS_REGION} \
+    --query LayerVersionArn --output text)
+
+# ---- DEPLOY STACK ----
+echo "Deploying CloudFormation Stack: ${STACK_NAME}"
+aws cloudformation deploy \
+    --stack-name ${STACK_NAME} \
+    --template-file ../cfn/bedrock-customer-resources.yml \
+    --parameter-overrides \
+        ArtifactBucket=${ARTIFACT_BUCKET_NAME} \
+        DataLoaderKey=${DATA_LOADER_KEY} \
+        CreateClaimKey=${CREATE_CLAIM_KEY} \
+        GatherEvidenceKey=${GATHER_EVIDENCE_KEY} \
+        SendReminderKey=${SEND_REMINDER_KEY} \
+        BedrockAgentsLayerArn=${BEDROCK_AGENTS_LAYER_ARN} \
+        CfnresponseLayerArn=${CFNRESPONSE_LAYER_ARN} \
+        SNSEmail=${SNS_EMAIL} \
+        EvidenceUploadUrl=${EVIDENCE_UPLOAD_URL} \
+    --capabilities CAPABILITY_NAMED_IAM \
+    --region ${AWS_REGION}
+
+echo "✅ Stack deployment initiated. Check status in the AWS CloudFormation console or use the command below:"
+echo "aws cloudformation describe-stacks --stack-name ${STACK_NAME} --region ${AWS_REGION} --query \"Stacks[0].StackStatus\""
+
+[root@ip-172-31-46-111 shell]# cat delete-customer-resources.sh
+#!/bin/bash
+
+# ---- CONFIGURATION ----
+export STACK_NAME="insurance-app-demo"
+export AWS_REGION="us-east-1"
+export ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+export ARTIFACT_BUCKET_NAME="${STACK_NAME}-resources-${ACCOUNT_ID}-${AWS_REGION}"
+
+# ---- DELETE STACK ----
+echo "Deleting CloudFormation Stack: ${STACK_NAME}"
+aws cloudformation delete-stack --stack-name ${STACK_NAME} --region ${AWS_REGION}
+aws cloudformation wait stack-delete-complete --stack-name ${STACK_NAME} --region ${AWS_REGION}
+echo "✅ CloudFormation Stack deleted."
+
+# ---- DELETE S3 BUCKET ----
+echo "Emptying and Deleting S3 Bucket: ${ARTIFACT_BUCKET_NAME}"
+aws s3 rm s3://${ARTIFACT_BUCKET_NAME} --region ${AWS_REGION} --recursive
+aws s3 rb s3://${ARTIFACT_BUCKET_NAME} --region ${AWS_REGION}
+echo "✅ S3 Bucket deleted."
+
+[root@ip-172-31-46-111 shell]#
+
+
+chmod +x create-customer-resources.sh
+   10  sh create-customer-resources.sh
+   
+   The portal is seamlessly integrated with various Axis applications, allowing employees to access it effortlessly from different platforms.
+Kaleidoscope aids customer experience management through an omnichannel view of a customer’s
+footprints across journeys; making our employees smarter, effective & productive.
+
+
+export AWS_REGION=us-east-1
+export BEDROCK_AGENT_ID=
+export BEDROCK_AGENT_ALIAS=     # You need to create one
+export KNOWLEDGE_BASE_ID=
+export DATA_SOURCE_ID=
+export KB_BUCKET_NAME=insurance-app-demo-resources-172982781615-us-east-1
+
+I want to file a new claim” or “Show me documents for claim 7a95t-4x
